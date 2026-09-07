@@ -269,6 +269,13 @@
   .sheet .block{ margin-bottom:14px; }
   .sheet .block .lbl{ font-size:11.5px; color:var(--seal); font-weight:700; margin-bottom:4px; }
   .sheet .block .txt{ font-size:13.5px; line-height:1.6; }
+  .addr-link{ color:var(--ink); text-decoration:none; }
+  .addr-link:hover{ text-decoration:underline; }
+  .addr-pin{
+    display:inline-block; margin-left:2px;
+    font-size:11.5px; font-weight:700; color:var(--seal);
+    white-space:nowrap;
+  }
   .sheet .divider{ border:none; border-top:1px dashed var(--line); margin:16px 0; }
 
   footer{
@@ -595,7 +602,7 @@ function openSheet(d){
       <div class="info-box"><div class="lbl">룸 보유</div><div class="val">${d.room==='O'?'있음':(d.room==='△'?'일부 가능':'없음')}</div></div>
       <div class="info-box"><div class="lbl">예약 가능</div><div class="val">${d.reserve==='O'?'가능':'불가'}</div></div>
     </div>
-    <div class="block"><div class="lbl">주소</div><div class="txt">${d.addr}</div></div>
+    <div class="block"><div class="lbl">주소</div><div class="txt"><a class="addr-link" href="https://map.kakao.com/link/search/${encodeURIComponent(d.addr)}" target="_blank" rel="noopener">${d.addr} <span class="addr-pin">📍 지도에서 보기</span></a></div></div>
     <div class="block"><div class="lbl">예약 방법</div><div class="txt">${d.channel}</div></div>
     <hr class="divider">
     <div class="block"><div class="lbl">참고 사항</div><div class="txt">${d.note}</div></div>
