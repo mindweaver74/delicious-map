@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>회식 깨동여지도</title>
+<style>
+  :root{
+    --paper:#EDE2C9;
+    --paper-2:#E2D4AE;
+    --paper-3:#D9C99A;
+    --ink:#2B2318;
+    --ink-soft:#5C4E3A;
+    --seal:#A13D2B;
+    --seal-dark:#7C2E20;
+    --line: rgba(43,35,24,0.28);
+    --line-soft: rgba(43,35,24,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.35), transparent 55%),
+      radial-gradient(ellipse at 90% 90%, rgba(0,0,0,0.06), transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Malgun Gothic', '맑은 고딕', sans-serif;
+    line-height:1.5;
+    padding-bottom:60px;
+  }
+  .texture-line{
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(43,35,24,0.02) 0px, rgba(43,35,24,0.02) 1px, transparent 1px, transparent 3px);
+    opacity:0.5;
+  }
+  header{
+    position:relative; z-index:1;
+    padding:34px 20px 22px;
+    text-align:center;
+    border-bottom:3px double var(--ink);
+  }
+  header .eyebrow{
+    font-size:12px; letter-spacing:0.15em; color:var(--seal);
+    font-weight:700; margin-bottom:6px;
+  }
+  header h1{
+    font-family:'궁서', Batang, serif;
+    font-weight:900;
+    font-size:34px;
+    margin:0 0 8px;
+    letter-spacing:0.02em;
+  }
+  header p{
+    margin:0; color:var(--ink-soft); font-size:13.5px;
+  }
+  .stamp{
+    display:inline-block; margin-top:14px;
+    border:2px solid var(--seal); color:var(--seal);
+    font-family:'궁서', Batang, serif; font-weight:700;
+    font-size:12px; padding:4px 12px; border-radius:3px;
+    transform:rotate(-3deg);
+  }
+
+  main{ position:relative; z-index:1; max-width:900px; margin:0 auto; padding:24px 16px 0; }
+
+  section.map-section{ margin-bottom:26px; }
+  .section-title{
+    font-family:'궁서', Batang, serif; font-weight:700; font-size:16px;
+    margin:0 0 4px;
+  }
+  .section-sub{ font-size:12.5px; color:var(--ink-soft); margin:0 0 14px; }
+
+  .zone-map{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px 14px;
+    display:flex; flex-wrap:wrap; gap:10px;
+    justify-content:center;
+    box-shadow: inset 0 0 30px rgba(43,35,24,0.06);
+  }
+  .zone-btn{
+    position:relative;
+    border:1.5px solid var(--ink);
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'궁서', Batang, serif;
+    font-weight:700;
+    font-size:14px;
+    padding:10px 16px 10px 14px;
+    border-radius:999px 999px 999px 4px;
+    cursor:pointer;
+    transition:transform .15s ease, background .15s ease, color .15s ease;
+    display:flex; align-items:center; gap:8px;
+  }
+  .zone-btn:nth-child(2n){ transform:rotate(-1.4deg); }
+  .zone-btn:nth-child(3n){ transform:rotate(1.6deg); }
+  .zone-btn:nth-child(5n){ transform:rotate(-0.8deg); }
+  .zone-btn:hover{ transform:scale(1.04) rotate(0deg); }
+  .zone-btn.active{
+    background:var(--seal); border-color:var(--seal-dark); color:var(--paper);
+    transform:scale(1.06) rotate(0deg);
+  }
+  .zone-count{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:20px; height:20px; padding:0 5px;
+    border-radius:50%;
+    background:var(--seal); color:var(--paper);
+    font-family:'Malgun Gothic', '맑은 고딕', sans-serif; font-size:11px; font-weight:700;
+  }
+  .zone-btn.active .zone-count{ background:var(--paper); color:var(--seal); }
+
+  .seoul-map-wrap{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 10px 4px;
+    margin-bottom:12px;
+    box-shadow: inset 0 0 30px rgba(43,35,24,0.06);
+  }
+  .seoul-map-wrap svg{ width:100%; height:auto; display:block; }
+  .zone-shape{
+    fill:var(--paper);
+    stroke:var(--ink);
+    stroke-width:1.4;
+    cursor:pointer;
+    transition:fill .15s ease;
+  }
+  .zone-shape:hover{ fill:#fff8ea; }
+  .zone-shape.active{ fill:var(--seal); fill-opacity:0.18; stroke:var(--seal-dark); stroke-width:2; }
+  .zone-label{
+    font-family:'궁서', Batang, serif; font-weight:700;
+    fill:var(--ink); pointer-events:none; user-select:none;
+  }
+  .zone-pin-hit{ cursor:pointer; fill:transparent; }
+  .zone-pin-dot{ fill:var(--seal); stroke:var(--paper); stroke-width:1.6; pointer-events:none; }
+  .zone-pin-dot.active{ fill:var(--seal-dark); }
+  .zone-pin-count{
+    font-family:'Malgun Gothic', '맑은 고딕', sans-serif; font-weight:700; font-size:9px;
+    fill:var(--paper); pointer-events:none; text-anchor:middle; dominant-baseline:central;
+  }
+  .river-path{ fill:none; stroke:#8FA9AE; stroke-width:9; opacity:0.55; stroke-linecap:round; }
+  .river-path2{ fill:none; stroke:#fff; stroke-width:1; opacity:0.35; stroke-dasharray:2 5; }
+  .map-caption{ text-align:center; font-size:11px; color:var(--ink-soft); padding:6px 4px 10px; }
+
+  .filters{
+    margin-top:14px;
+    display:flex; flex-wrap:wrap; gap:8px;
+  }
+  .filters input[type=text]{
+    flex:1 1 160px;
+    font-family:'Malgun Gothic', '맑은 고딕', sans-serif;
+    font-size:13px;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff8ea;
+    color:var(--ink);
+  }
+  .filters select{
+    flex:1 1 100px;
+    font-family:'Malgun Gothic', '맑은 고딕', sans-serif;
+    font-size:13px;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff8ea;
+    color:var(--ink);
+  }
+  .filters input::placeholder{ color:#9c8c6f; }
+
+  .result-bar{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin:20px 2px 10px;
+  }
+  .result-bar .count{ font-family:'궁서', Batang, serif; font-weight:700; font-size:15px; }
+  .result-bar .count b{ color:var(--seal); font-size:19px; }
+  .reset-link{
+    font-size:12.5px; color:var(--ink-soft); text-decoration:underline;
+    cursor:pointer; background:none; border:none; font-family:inherit;
+    padding:0;
+  }
+
+  .card-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:10px;
+  }
+  .card{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:12px 12px 11px;
+    cursor:pointer;
+    transition:box-shadow .15s ease, transform .15s ease, border-color .15s ease;
+    position:relative;
+  }
+  .card:hover{
+    box-shadow:0 4px 14px rgba(43,35,24,0.15);
+    transform:translateY(-2px);
+    border-color:var(--seal);
+  }
+  .card .c-region{
+    font-size:10.5px; color:var(--seal); font-weight:700; letter-spacing:0.02em;
+    margin-bottom:4px;
+  }
+  .card .c-name{
+    font-family:'궁서', Batang, serif; font-weight:700; font-size:15px;
+    margin-bottom:6px; line-height:1.3;
+  }
+  .card .c-type{ font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
+  .card .c-meta{
+    display:flex; flex-wrap:wrap; gap:5px;
+  }
+  .tag{
+    font-size:10.5px; padding:2px 7px; border-radius:999px;
+    border:1px solid var(--line); color:var(--ink-soft);
+    background:rgba(255,255,255,0.5);
+    white-space:nowrap;
+  }
+  .tag.room-y{ border-color:var(--seal); color:var(--seal); }
+
+  .empty-state{
+    text-align:center; padding:50px 20px; color:var(--ink-soft);
+    font-size:13.5px;
+  }
+  .empty-state .big{ font-family:'궁서', Batang, serif; font-size:20px; color:var(--ink); margin-bottom:8px; }
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,15,8,0.55);
+    display:none; align-items:flex-end; justify-content:center;
+    z-index:50;
+  }
+  .overlay.open{ display:flex; }
+  .sheet{
+    background:var(--paper);
+    width:100%; max-width:560px;
+    border-radius:20px 20px 0 0;
+    border-top:3px double var(--ink);
+    max-height:86vh; overflow-y:auto;
+    padding:22px 22px 30px;
+    animation:slideUp .22s ease;
+    position:relative;
+  }
+  @media (min-width:600px){
+    .overlay{ align-items:center; }
+    .sheet{ border-radius:16px; border:3px double var(--ink); max-height:80vh; }
+  }
+  @keyframes slideUp{ from{ transform:translateY(24px); opacity:0; } to{ transform:translateY(0); opacity:1; } }
+  .sheet .close-btn{
+    position:absolute; top:16px; right:18px;
+    background:none; border:none; font-size:20px; color:var(--ink-soft);
+    cursor:pointer; line-height:1;
+  }
+  .sheet .s-region{ font-size:12px; color:var(--seal); font-weight:700; margin-bottom:6px; }
+  .sheet h2{ font-family:'궁서', Batang, serif; font-size:22px; margin:0 0 4px; padding-right:24px; }
+  .sheet .s-type{ font-size:13px; color:var(--ink-soft); margin-bottom:16px; }
+  .info-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    margin-bottom:16px;
+  }
+  .info-box{
+    background:var(--paper-2); border:1px solid var(--line-soft); border-radius:8px;
+    padding:9px 12px;
+  }
+  .info-box .lbl{ font-size:10.5px; color:var(--ink-soft); margin-bottom:2px; }
+  .info-box .val{ font-size:13.5px; font-weight:700; }
+  .sheet .block{ margin-bottom:14px; }
+  .sheet .block .lbl{ font-size:11.5px; color:var(--seal); font-weight:700; margin-bottom:4px; }
+  .sheet .block .txt{ font-size:13.5px; line-height:1.6; }
+  .sheet .divider{ border:none; border-top:1px dashed var(--line); margin:16px 0; }
+
+  footer{
+    text-align:center; padding:26px 20px 6px; color:var(--ink-soft); font-size:11.5px;
+    position:relative; z-index:1;
+  }
+</style>
+</head>
+<body>
+<div class="texture-line"></div>
+
+<header>
+  <div class="eyebrow">기업문화 CHANGER</div>
+  <h1>회식 깨동여지도</h1>
+  <p>사람들이 다녀온 회식 맛집, 지역별로 모아봤습니다</p>
+  <div class="stamp" id="totalCountStamp">수록 중</div>
+</header>
+
+<main>
+
+  <section class="map-section">
+    <p class="section-title">지역으로 찾기</p>
+    <p class="section-sub">지도에서 권역을 짚으면 그 지역 맛집만 모아보여드려요</p>
+    <div class="seoul-map-wrap">
+      <div id="seoulMap"></div>
+      <div class="map-caption">※ 실제 주소 좌표가 아닌, 권역별 대략적인 위치입니다</div>
+    </div>
+    <div class="zone-map" id="zoneMap"></div>
+
+    <div class="filters">
+      <input type="text" id="searchInput" placeholder="식당 이름, 메뉴로 검색">
+      <select id="typeSelect"><option value="">종류 전체</option></select>
+      <select id="capSelect">
+        <option value="">인원 전체</option>
+        <option value="10">10명 이상</option>
+        <option value="20">20명 이상</option>
+        <option value="40">40명 이상</option>
+        <option value="80">80명 이상</option>
+      </select>
+      <select id="roomSelect">
+        <option value="">룸 전체</option>
+        <option value="O">룸 있음</option>
+      </select>
+    </div>
+  </section>
+
+  <div class="result-bar">
+    <div class="count"><b id="resultCount">0</b>곳</div>
+    <button class="reset-link" id="resetBtn">필터 초기화</button>
+  </div>
+
+  <div class="card-grid" id="cardGrid"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <div class="big">해당하는 곳이 없어요</div>
+    검색어나 필터 조건을 조금 넓혀보세요
+  </div>
+
+</main>
+
+<footer>사내 회식 참고용 · 정보가 실제와 다를 수 있으니 방문 전 전화 확인을 권장합니다</footer>
+
+<div class="overlay" id="overlay">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script>
+const DATA = [
+{n:"미미옥",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대로 70 원센트럴 2층",type:"한식(한우 샤브샤브)",cap:10,price:"3-4만원",room:"X",reserve:"O",channel:"캐치테이블·테이블링·전화",note:"원센트럴 2층, 블루리본 서베이 선정. '미' 또는 '옥'이 들어간 이름이면 10% 할인 이벤트."},
+{n:"물레방아 즉석구이",region:"부산",zone:"region",addr:"부산광역시 중구 중앙대로41번길 11-1",type:"한식(고기)",cap:30,price:"2-4만원",room:"X",reserve:"O",channel:"전화",note:"11:40-22:00, 브레이크 15:00-17:00. 매달 1·3주 일·월 휴무. 주차 불가(인근 공영주차장), 웨이팅 잦음, 환기 취약 후기 다수."},
+{n:"육전국밥 여의도역점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의나루로 60 포스트타워(여의도우체국) 지하1층",type:"한식(소고기국밥·전)",cap:30,price:"1-2만원",room:"X",reserve:"O",channel:"전화",note:"평일 07:30-22:00, 주말 08:00-21:00. 1시간30분 무료주차, 셀프 반찬 리필."},
+{n:"모담어반",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로 10 One IFC L3",type:"한식(한정식)",cap:20,price:"2-8만원",room:"X",reserve:"O",channel:"캐치테이블·전화",note:"매일 11:00-22:00(라스트오더 20:30). 메인 주문 시 곁들임 6종 제공. IFC몰 주차. 인기 메뉴 조기 품절 잦음."},
+{n:"능라도",region:"여의도",zone:"yeouido",addr:"서울 영등포구 의사당대로 96 TP타워 지하1층",type:"한식(이북음식)",cap:null,price:"확인 필요",room:"X",reserve:"O",channel:"전화",note:"세부 정보(인원·가격 등) 확인이 필요합니다."},
+{n:"생활맥주 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로 386 진주빌딩 105호",type:"주점",cap:20,price:"1-4만원",room:"O",reserve:"O",channel:"전화·테이블링",note:"월-금 11:00-21:30(브레이크 15:00-17:00), 일 11:00-20:30, 토요일 휴무. 평일 1시간30분/주말 2시간 무료주차."},
+{n:"미스터향 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의나루로 60 포스트타워 지하1층 134호",type:"중식",cap:20,price:"1-4만원",room:"O",reserve:"O",channel:"전화",note:"매일 17:00-02:00. 야장 이용 가능."},
+{n:"구마산",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로 70 미원빌딩 2층(여의도동 43)",type:"한식",cap:null,price:"확인 필요",room:"X",reserve:"O",channel:"전화",note:"세부 정보 확인이 필요합니다."},
+{n:"해피치킨 여의도",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로67길 8",type:"주점",cap:10,price:"1-4만원",room:"O",reserve:"O",channel:"전화",note:"11:30-21:00, 일요일 휴무. 외부 간담회용 별도 공간은 없음."},
+{n:"조도",region:"여의도",zone:"yeouido",addr:"서울 영등포구 의사당대로1길 11 지하1층 101-103호",type:"일식",cap:null,price:"확인 필요",room:"X",reserve:"O",channel:"전화",note:"세부 정보 확인이 필요합니다."},
+{n:"명불허전 원조골뱅이 선릉점",region:"선릉",zone:"gangnam",addr:"서울 강남구 대치동 900-11(선릉역)",type:"주점",cap:10,price:"4-6만원",room:"O",reserve:"O",channel:"전화",note:"인도네시아대사관 인근 20년 노포. 술상·밀떡볶이 46,000원, 후라이드 24,000원, 양념 27,000원. 케이크 반입 제한 후기 있음."},
+{n:"마도",region:"여의도",zone:"yeouido",addr:"서울 영등포구 의사당대로1길 11",type:"일식",cap:null,price:"확인 필요",room:"X",reserve:"O",channel:"전화",note:"세부 정보 확인이 필요합니다."},
+{n:"무교동 북어국집",region:"을지로",zone:"downtown",addr:"서울 중구 을지로1길 38",type:"한식(북어해장국)",cap:20,price:"5만원 내외",room:"X",reserve:"O",channel:"전화",note:"17:00-01:00, 일요일 휴무. 좌석 간격이 좁고 소란스러운 편이라 소규모 모임에 더 적합."},
+{n:"유림 닭도리탕",region:"강서",zone:"etcseoul",addr:"서울 강서구 공항대로71길 5",type:"한식(닭볶음탕)",cap:10,price:"1-2만원",room:"X",reserve:"X",channel:"전화",note:"20년 운영. 오피스텔 내 위치. 매운탕 등 단품 유명. 김포공항역 인근. 동명 업소가 많아 방문 전 상호 재확인 권장."},
+{n:"원조조박집",region:"마포",zone:"mapo",addr:"서울 마포구 토정로 313-1 1층",type:"한식(고기)",cap:30,price:"1-3만원",room:"X",reserve:"O",channel:"전화",note:"평일 07:00-20:00, 주말 07:00-15:00, 연중무휴. 밥 무한리필, 계란후라이 500원. 1968년 창업. 주변 재개발로 영업 변동 가능성 있음."},
+{n:"마포최대포숯불갈매기돼지갈비",region:"흑석",zone:"etcseoul",addr:"서울 동작구 흑석동 6-22(서달로14길 11)",type:"한식(고기)",cap:10,price:"1-2만원",room:"X",reserve:"O",channel:"전화",note:"11:30-22:00. 주차장 완비, 연중무휴."},
+{n:"용두동복집",region:"동대문",zone:"etcseoul",addr:"서울 동대문구 왕산로16길 9",type:"한식(복어)",cap:40,price:"2-3만원",room:"X",reserve:"O",channel:"전화",note:"주차 불가."},
+{n:"광화문 고기집",region:"광화문",zone:"downtown",addr:"서울 종로구 새문안로5가길 11",type:"한식(고기)",cap:40,price:"5-6만원",room:"O",reserve:"O",channel:"전화",note:"주차 불가."},
+{n:"백우정",region:"구미",zone:"region",addr:"경북 구미시 금오산로 178",type:"양식(파스타)",cap:30,price:"2-3만원",room:"X",reserve:"O",channel:"-",note:"유료주차."},
+{n:"이자카야 나무",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로67길 18",type:"일식",cap:200,price:"3-5만원",room:"O",reserve:"O",channel:"전화",note:"주차 가능."},
+{n:"잠수교집",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의나루로 117 공작아파트 지하",type:"한식(고기)",cap:30,price:"2-3만원",room:"X",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 가능(2시간)."},
+{n:"여의도마루",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로7길 15",type:"한식(보쌈)",cap:40,price:"2-3만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능."},
+{n:"멕시칼리",region:"광진구",zone:"etcseoul",addr:"서울 광진구 천호대로 634",type:"멕시칸(타코)",cap:40,price:"2-3만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능."},
+{n:"한미옥 여의도직영점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의나루로 81 1층",type:"한식(차돌구절판)",cap:50,price:"6-8만원",room:"X",reserve:"X",channel:"-",note:"주차 불가."},
+{n:"고려맥주",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로6길 30 백상빌딩 1층",type:"주점",cap:30,price:"1-2만원",room:"O",reserve:"O",channel:"전화·캐치테이블",note:"주차 가능(2시간), 콜키지 무료."},
+{n:"요이",region:"강남",zone:"gangnam",addr:"서울 서초구 강남대로65길 10 2층",type:"주점",cap:200,price:"3-5만원",room:"O",reserve:"O",channel:"전화",note:"주차 가능(2시간), 콜키지 무료."},
+{n:"달인곱창 여의도본점",region:"강남",zone:"yeouido",addr:"서울 영등포구 여의대방로 386",type:"한식(고기)",cap:30,price:"3-4만원",room:"X",reserve:"O",channel:"전화·네이버",note:"주차 불가, 콜키지 유료."},
+{n:"홍우정",region:"부천",zone:"region",addr:"경기 부천시 소사구 소사본동 126-25",type:"한식(고기)",cap:40,price:"3-4만원",room:"X",reserve:"O",channel:"-",note:"주차 불가."},
+{n:"가원",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로8길 27-9",type:"중식",cap:30,price:"3-4만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능."},
+{n:"본토박이",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로6길 30 백상빌딩 3층",type:"한식",cap:50,price:"2-3만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능."},
+{n:"골수 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대로 70 원센트럴 2층",type:"한식(갈비탕)",cap:50,price:"2-5만원",room:"X",reserve:"O",channel:"전화·네이버",note:"주차 가능(2시간)."},
+{n:"또순이네집",region:"선유도",zone:"etcseoul",addr:"서울 영등포구 선유로47길 16 오오1004빌딩 1-2층",type:"한식(고기)",cap:50,price:"4-7만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능, 콜키지 유료."},
+{n:"올리페페 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로 10 IFC몰 L3층",type:"양식(이탈리안)",cap:null,price:"확인 필요",room:"X",reserve:"O",channel:"전화",note:"세부 정보 확인이 필요합니다."},
+{n:"해심가든",region:"제주도",zone:"region",addr:"제주 서귀포시 천제연로 203-4",type:"양식",cap:20,price:"3-6만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능, 콜키지 유료."},
+{n:"로스옥 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로2길 24 BNK금융타워 지하1층",type:"한식(고기)",cap:68,price:"4-7만원",room:"X",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 가능, 콜키지 유료."},
+{n:"키보 락앤롤 여의도본점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대로 70 원센트럴 지하1층",type:"한식(고기)",cap:160,price:"5-8만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능, 콜키지 무료."},
+{n:"한방족발",region:"공덕",zone:"mapo",addr:"서울 마포구 만리재로 19 공덕시장 1층",type:"한식(족발)",cap:null,price:"확인 필요",room:"X",reserve:"O",channel:"전화",note:"세부 정보 확인이 필요합니다."},
+{n:"카이 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 의사당대로1길 25 하남빌딩 101-104호",type:"일식",cap:10,price:"3-6만원",room:"X",reserve:"O",channel:"전화·네이버·캐치테이블",note:"콜키지 유료(와인 4만원, 위스키 6만원)."},
+{n:"너와집",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로8길 27-9 동북빌딩 2층",type:"한식(족발)",cap:30,price:"2-5만원",room:"X",reserve:"O",channel:"전화·네이버",note:"주차 불가, 콜키지 불가."},
+{n:"아리수만찬",region:"여의도",zone:"yeouido",addr:"서울 영등포구 노들로 111 양화선착장",type:"한식(고기)",cap:200,price:"2-5만원",room:"X",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 가능, 콜키지 유료(병당 3만원)."},
+{n:"해바라기",region:"여의도",zone:"yeouido",addr:"동여의도점: 서울 영등포구 국제금융로6길 33 맨하탄빌딩 지하1층 / 서여의도점: 서울 영등포구 은행로 29 정우빌딩 지하1층",type:"한식(고기)",cap:null,price:"확인 필요",room:"X",reserve:"O",channel:"전화",note:"세부 정보 확인이 필요합니다."},
+{n:"이가네양꼬치 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로65길 23 101호",type:"한식(양꼬치)",cap:50,price:"2-5만원",room:"X",reserve:"O",channel:"전화",note:"콜키지 유료(500ml 이하 2만원, 이상 3만원)."},
+{n:"신참아나고",region:"대구",zone:"region",addr:"대구 수성구 지산로3길 133",type:"한식(아나고)",cap:100,price:"3-6만원",room:"X",reserve:"O",channel:"전화·네이버",note:"주차 가능."},
+{n:"팔팔아구",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로6길 30 백상빌딩 117호",type:"한식(아구찜)",cap:50,price:"2-5만원",room:"O",reserve:"O",channel:"네이버·전화",note:"콜키지 유료(첫 병 무료, 추가 시 유료)."},
+{n:"허식당",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로 379 제일빌딩 B016호",type:"한식(아구찜)",cap:34,price:"2-5만원",room:"X",reserve:"O",channel:"전화·캐치테이블",note:"주차 가능, 콜키지 유료(와인 2만원, 위스키 3만원)."},
+{n:"락희안",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대로 70 원센트럴 2층 208호",type:"중식",cap:20,price:"2-5만원",room:"O",reserve:"O",channel:"네이버·캐치테이블·전화",note:"원센트럴 리모델링 후 입점. 무료주차 1시간."},
+{n:"신홍러우 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로 39(브라이튼 여의도)",type:"중식",cap:20,price:"4-6만원",room:"O",reserve:"O",channel:"캐치테이블·네이버",note:"콜키지 프리, 주차 가능. 브라이튼 여의도 스퀘어 인근."},
+{n:"신라식당",region:"대구",zone:"region",addr:"대구 중구 중앙대로 406-8",type:"한식(낙지볶음)",cap:30,price:"2-3만원",room:"X",reserve:"O",channel:"캐치테이블",note:"1985년부터 영업한 대구 노포. 대구·진주·서울 등 여러 지점 운영. 주변 유료주차장 이용."},
+{n:"김종우 갈백집",region:"안산",zone:"region",addr:"경기 안산시 단원구 고잔2길 9",type:"한식(고기)",cap:16,price:"2-3만원",room:"O",reserve:"O",channel:"캐치테이블·전화",note:"TV 맛집 프로그램에 소개된 이력. 입구가 좁은 골목 안쪽. 룸 4개, 방마다 10명 수용 가능."},
+{n:"제주옥탑 블랙BBQ",region:"강남",zone:"gangnam",addr:"서울 강남구 언주로170길 34 1층",type:"한식(고기)",cap:80,price:"3-5만원",room:"O",reserve:"O",channel:"캐치테이블·전화",note:"동굴 콘셉트 인테리어. 제주 흑돼지·한우 전문. 압구정로데오 인근. 룸 4개, 방마다 10명 수용."},
+{n:"산삼골오리집",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로6길 33 여의도백화점 7층",type:"한식(오리요리)",cap:100,price:"4-6만원",room:"O",reserve:"O",channel:"전화",note:"30년 전통 오리요리 전문점. 연말연초 예약 조기 마감 잦음. 매주 토·일 휴무."},
+{n:"대동문",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로6길 30",type:"한식(이북음식)",cap:40,price:"4-5만원",room:"△",reserve:"O",channel:"전화",note:"1985년 개업한 평양음식 노포(약 40년). 일요일·공휴일 휴무."},
+{n:"더미 을지로점",region:"을지로",zone:"downtown",addr:"서울 중구 을지로5길 19 페럼타워 지하2층",type:"한식(고기)",cap:100,price:"5-7만원",room:"O",reserve:"O",channel:"전화",note:"한우 전문 브랜드. 광화문·을지로·여의도점 운영 중."},
+{n:"모도우 여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의도 파이낸스타워 405·406호",type:"한식(고기)",cap:20,price:"10-15만원",room:"O",reserve:"O",channel:"캐치테이블·네이버·전화",note:"한우·곱창구이 가능. 별도 주차 있음. 상견례·접대 자리로 추천됨."},
+{n:"민소한우 금융로점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로6길 26",type:"한식(고기)",cap:40,price:"5-10만원",room:"O",reserve:"O",channel:"전화",note:"콜키지·콜키지프리 모두 가능. 주차 가능."},
+{n:"옥토스",region:"강남",zone:"gangnam",addr:"서울 서초구 서초동 1302-34 1층(사평대로52길)",type:"한식(해산물)",cap:16,price:"5-7만원",room:"O",reserve:"O",channel:"전화",note:"동해안 문어·대게 전문점. 주차 1~2대 가능(전화 확인 필요). 8명 이상은 전화 예약 필수."},
+{n:"대물섬",region:"종로",zone:"downtown",addr:"서울 종로구 관철동 45-1",type:"한식(해산물)",cap:20,price:"4-6만원",room:"X",reserve:"O",channel:"네이버",note:"-"},
+{n:"선미횟집",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로8길 11",type:"한식(회·해산물)",cap:40,price:"4-5만원",room:"X",reserve:"O",channel:"전화",note:"평일만 영업(주말·공휴일 휴무). 여의도 직장인 회식·해장 맛집. 점심 예약 불가, 저녁도 워크인 시 만석 잦음. 사람 많을 때 다소 시끄러운 편."},
+{n:"심퍼티쿠시",region:"여의도",zone:"yeouido",addr:"서울 영등포구 의사당대로 96 TP타워2",type:"양식",cap:92,price:"1-6만원",room:"O",reserve:"O",channel:"전화·캐치테이블",note:"주차 가능, 콜키지 가능."},
+{n:"8번대물집",region:"여의도",zone:"yeouido",addr:"서울 영등포구 의사당대로 38 1층 101-114호",type:"한식(해산물)",cap:20,price:"1-9만원",room:"X",reserve:"O",channel:"전화·캐치테이블",note:"주차 가능, 콜키지 가능."},
+{n:"향 이자카야",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로 379 제일빌딩 2층",type:"일식",cap:40,price:"2-4만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능."},
+{n:"파파야리프 강남",region:"강남",zone:"gangnam",addr:"서울 강남구 강남대로102길 29(파파야리프 강남)",type:"동남아 음식",cap:80,price:"1-3만원",room:"O",reserve:"O",channel:"전화",note:"주차 불가."},
+{n:"남해바다",region:"마포",zone:"mapo",addr:"서울 마포구 토정로37길 46 정우맨션 1층",type:"한식(해산물)",cap:44,price:"1-4만원",room:"X",reserve:"O",channel:"전화",note:"주차 가능, 콜키지 가능."},
+{n:"육회관포차",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로 78 홍우빌딩 2층 213호",type:"한식(육회)",cap:30,price:"1-6만원",room:"X",reserve:"O",channel:"전화·캐치테이블·네이버",note:"주차 가능."},
+{n:"금돈옥",region:"을지로",zone:"downtown",addr:"서울 중구 을지로3가 347-3",type:"한식(고기)",cap:80,price:"1-5만원",room:"O",reserve:"O",channel:"전화",note:"주차 가능."},
+{n:"나무가든 동여의도점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로65길 24 2층",type:"한식(고기)",cap:25,price:"1-15만원",room:"O",reserve:"O",channel:"전화·캐치테이블·네이버",note:"주차 가능, 콜키지 가능."},
+{n:"은민홍",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로6길 17 부국증권빌딩 지하1층 4호",type:"한식(해산물)",cap:70,price:"4-9만원",room:"O",reserve:"O",channel:"전화",note:"주차 가능."},
+{n:"장수갈매기",region:"마포",zone:"mapo",addr:"서울 마포구 도화길 46",type:"한식(고기)",cap:40,price:"1-2만원",room:"X",reserve:"O",channel:"전화",note:"-"},
+{n:"중앙해장",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대로 70 원센트럴 2층",type:"한식(해장국)",cap:16,price:"1-3만원",room:"X",reserve:"O",channel:"전화·네이버",note:"주차 가능, 콜키지 가능."},
+{n:"오드오드",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로7길 15",type:"양식",cap:50,price:"1-3만원",room:"O",reserve:"O",channel:"전화·캐치테이블·네이버",note:"콜키지 가능."},
+{n:"육즙터",region:"마포",zone:"mapo",addr:"서울 마포구 삼개로5길 8(도화동 205-1)",type:"한식(고기)",cap:12,price:"1-4만원",room:"O",reserve:"O",channel:"전화·캐치테이블·네이버",note:"콜키지 가능."},
+{n:"고방채 동여의도 본점",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로65길 20 1층",type:"한식",cap:13,price:"2-20만원",room:"O",reserve:"O",channel:"전화·네이버",note:"콜키지 가능."},
+{n:"오발탄",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로65길 20 2층",type:"한식(고기)",cap:40,price:"3-5만원",room:"O",reserve:"O",channel:"전화·네이버",note:"-"},
+{n:"돈블랑",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로67길 11 2층",type:"한식(고기)",cap:144,price:"1-3만원",room:"O",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 2시간 무료(추가 10분당 1,000원). 콜키지 테이블당 1병 무료, 추가 1병당 2만원."},
+{n:"조원",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의도동 44-34",type:"한식(오리요리)",cap:50,price:"1-6만원",room:"X",reserve:"O",channel:"전화",note:"-"},
+{n:"뜰채",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의대방로67길 22, 태양빌딩 1층 105호",type:"한식(해산물)",cap:6,price:"2-8만원",room:"O",reserve:"O",channel:"전화·네이버",note:"주차 불가, 콜키지 유료. 신선한 제철 해산물이 강점."},
+{n:"눈나무집",region:"종로",zone:"downtown",addr:"서울 종로구 삼청로 136-1",type:"한식",cap:30,price:"1-2만원",room:"X",reserve:"O",channel:"전화",note:"-"},
+{n:"어슬",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로8길 16 신영증권빌딩 2층",type:"한식",cap:12,price:"1-5만원",room:"O",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 1시간당 5,000원. 콜키지 와인 병당 3만원, 위스키 병당 4만원."},
+{n:"대원앤대원 여의도",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로8길 34 오륜빌딩 2층",type:"일식",cap:20,price:"1-5만원",room:"X",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 불가, 콜키지 유료."},
+{n:"대문집",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의나루로 53-1",type:"한식(고기)",cap:75,price:"1-3만원",room:"O",reserve:"O",channel:"전화",note:"주차 2시간 무료."},
+{n:"고봉당",region:"용산",zone:"yongsan",addr:"서울 용산구 한강대로54길 3 1층",type:"한식(치즈족발)",cap:20,price:"1-2만원",room:"X",reserve:"O",channel:"전화·네이버",note:"주차 불가."},
+{n:"산동만두",region:"마포",zone:"mapo",addr:"서울 마포구 도화길 22-10",type:"중식",cap:null,price:"1-6만원",room:"X",reserve:"X",channel:"-",note:"주차 불가. TV 백반 프로그램 출연 이력. 예약을 연 2회 정도만 받음."},
+{n:"육회이야기",region:"공덕",zone:"mapo",addr:"서울 마포구 공덕동 445-1 1층 6호(공덕더샵)",type:"한식(육회)",cap:15,price:"2-8만원",room:"O",reserve:"O",channel:"전화",note:"주차 불가, 콜키지 무료."},
+{n:"서동한우",region:"강남",zone:"gangnam",addr:"서울 서초구 서초대로74길 29 파라곤 2층",type:"한식(고기)",cap:10,price:"2-8만원",room:"O",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 30분 무료(추가 10분당 1,000원). 콜키지 위스키 병당 3만원."},
+{n:"푸에르코(파이낸스타워점)",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로2길 32 여의도파이낸스타워 4층 402호",type:"한식(고기)",cap:92,price:"2-15만원",room:"O",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 2시간 무료(추가 1시간당 8,000원). 콜키지 무료."},
+{n:"경천애인2237(여의도점)",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로8길 31(SK증권빌딩 지하2층)",type:"한식(고기)",cap:50,price:"2-6만원",room:"O",reserve:"O",channel:"전화",note:"주차 2시간 무료, 콜키지 무료."},
+{n:"푸에르코(TP타워점)",region:"여의도",zone:"yeouido",addr:"서울 영등포구 의사당대로 96 TP Tower 지하2층",type:"한식(고기)",cap:60,price:"3-15만원",room:"O",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 1시간30분 무료(추가 10분당 1,500원). 콜키지 와인·위스키 무료, 그 외 주류 병당 2만원."},
+{n:"진옥곱창 부곡점",region:"김천",zone:"region",addr:"경북 김천시 부공맛고을1길 67 1층",type:"한식(고기)",cap:10,price:"2-4만원",room:"X",reserve:"O",channel:"전화",note:"주차 무료."},
+{n:"우이락",region:"여의도",zone:"yeouido",addr:"서울 영등포구 여의나루로 113 2층 203호",type:"한식(육회)",cap:20,price:"1-2만원",room:"O",reserve:"O",channel:"전화·네이버·캐치테이블",note:"주차 불가."},
+{n:"통",region:"천안",zone:"region",addr:"충남 천안시 서북구 공원로 205 1층 120호",type:"한식(해산물)",cap:170,price:"3-5만원",room:"X",reserve:"O",channel:"전화",note:"주차 2시간 무료, 콜키지 유료."},
+{n:"여의돈",region:"여의도",zone:"yeouido",addr:"서울 영등포구 국제금융로6길 30 백상빌딩",type:"한식(고기)",cap:48,price:"1-3만원",room:"X",reserve:"O",channel:"전화",note:"주차 2시간 무료, 콜키지 유료."}
+];
+
+const ZONE_META = {
+  yeouido:  {label:"여의도", short:"여의도"},
+  mapo:     {label:"마포·공덕", short:"마포"},
+  gangnam:  {label:"강남·서초·선릉", short:"강남"},
+  downtown: {label:"도심(종로·을지로·광화문)", short:"도심"},
+  yongsan:  {label:"용산", short:"용산"},
+  etcseoul: {label:"서울 기타", short:"서울기타"},
+  region:   {label:"지방", short:"지방"}
+};
+
+let state = { zone:"", search:"", type:"", cap:"", room:"" };
+
+// 서울 권역을 대략적인 상대 위치로 배치한 손그림풍 지도 좌표
+// path는 각 권역을 뭉뚝한 땅덩어리 모양으로 표현하기 위한 좌표
+const SEOUL_SHAPES = {
+  mapo:     { path:"M18,86 C10,70 30,55 55,52 C82,49 108,58 112,80 C116,102 98,118 70,120 C42,122 24,104 18,86 Z", pin:{x:60,y:86},  labelPos:{x:38,y:66} },
+  downtown: { path:"M128,30 C122,14 150,4 182,6 C214,8 238,20 234,40 C230,60 198,68 168,64 C138,60 134,46 128,30 Z", pin:{x:180,y:36}, labelPos:{x:150,y:20} },
+  yongsan:  { path:"M150,96 C146,84 164,74 186,76 C206,78 218,90 214,104 C210,118 190,124 172,120 C154,116 154,108 150,96 Z", pin:{x:182,y:100}, labelPos:{x:158,y:132} },
+  yeouido:  { path:"M62,130 C56,116 82,104 116,106 C150,108 168,120 164,136 C160,152 128,160 96,158 C64,156 68,144 62,130 Z", pin:{x:114,y:132}, labelPos:{x:80,y:150} },
+  etcseoul: { path:"M226,50 C224,36 250,26 278,30 C304,34 314,48 306,62 C298,76 270,80 248,74 C226,68 228,64 226,50 Z", pin:{x:270,y:52},  labelPos:{x:236,y:88} },
+  gangnam:  { path:"M182,146 C178,130 214,118 254,122 C292,126 314,144 306,164 C298,184 258,196 220,190 C182,184 186,162 182,146 Z", pin:{x:246,y:156}, labelPos:{x:200,y:200} }
+};
+
+function buildSeoulMap(){
+  const el = document.getElementById('seoulMap');
+  const counts = {};
+  DATA.forEach(d=>{ counts[d.zone] = (counts[d.zone]||0)+1; });
+
+  let shapesSvg = "";
+  let pinsSvg = "";
+  let labelsSvg = "";
+  Object.keys(SEOUL_SHAPES).forEach(z=>{
+    const s = SEOUL_SHAPES[z];
+    const cnt = counts[z] || 0;
+    if(cnt===0) return;
+    const isActive = state.zone === z;
+    shapesSvg += `<path class="zone-shape${isActive?' active':''}" data-zone="${z}" d="${s.path}"></path>`;
+    labelsSvg += `<text class="zone-label" x="${s.labelPos.x}" y="${s.labelPos.y}" font-size="11">${ZONE_META[z].short}</text>`;
+    const r = 11 + Math.min(cnt,50)*0.12;
+    pinsSvg += `
+      <g data-zone="${z}" style="cursor:pointer;">
+        <circle class="zone-pin-dot${isActive?' active':''}" cx="${s.pin.x}" cy="${s.pin.y}" r="${r}"></circle>
+        <text class="zone-pin-count" x="${s.pin.x}" y="${s.pin.y+1}">${cnt}</text>
+        <circle class="zone-pin-hit" data-zone="${z}" cx="${s.pin.x}" cy="${s.pin.y}" r="${r+8}"></circle>
+      </g>`;
+  });
+
+  el.innerHTML = `
+    <svg viewBox="0 0 330 210" xmlns="http://www.w3.org/2000/svg">
+      <path class="river-path" d="M0,108 C60,124 110,96 170,110 C230,124 280,100 330,112"></path>
+      <path class="river-path2" d="M0,108 C60,124 110,96 170,110 C230,124 280,100 330,112"></path>
+      ${shapesSvg}
+      ${labelsSvg}
+      ${pinsSvg}
+    </svg>
+  `;
+  el.querySelectorAll('[data-zone]').forEach(node=>{
+    node.style.pointerEvents = 'none';
+  });
+  const svgRoot = el.querySelector('svg');
+  svgRoot.addEventListener('click', (e)=>{
+    const target = e.target.closest('[data-zone]');
+    if(!target) return;
+    const z = target.getAttribute('data-zone');
+    state.zone = (state.zone === z ? "" : z);
+    render();
+    document.getElementById('resultCount').scrollIntoView({behavior:'smooth', block:'center'});
+  });
+  el.querySelectorAll('.zone-shape, .zone-pin-hit').forEach(node=>{
+    node.style.pointerEvents = 'auto';
+  });
+}
+
+function buildZoneMap(){
+  const wrap = document.getElementById('zoneMap');
+  wrap.innerHTML = "";
+  const allBtn = document.createElement('button');
+  allBtn.className = 'zone-btn' + (state.zone===""?" active":"");
+  allBtn.innerHTML = `전체 <span class="zone-count">${DATA.length}</span>`;
+  allBtn.onclick = () => { state.zone=""; render(); };
+  wrap.appendChild(allBtn);
+
+  Object.keys(ZONE_META).forEach(z=>{
+    const cnt = DATA.filter(d=>d.zone===z).length;
+    if(cnt===0) return;
+    const btn = document.createElement('button');
+    btn.className = 'zone-btn' + (state.zone===z?" active":"");
+    btn.innerHTML = `${ZONE_META[z].label} <span class="zone-count">${cnt}</span>`;
+    btn.onclick = () => { state.zone = (state.zone===z? "" : z); render(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function buildTypeOptions(){
+  const sel = document.getElementById('typeSelect');
+  const cats = {};
+  DATA.forEach(d=>{
+    const base = d.type.split('(')[0].trim();
+    cats[base] = (cats[base]||0)+1;
+  });
+  Object.keys(cats).sort((a,b)=>cats[b]-cats[a]).forEach(c=>{
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = `${c} (${cats[c]})`;
+    sel.appendChild(opt);
+  });
+}
+
+function filteredData(){
+  return DATA.filter(d=>{
+    if(state.zone && d.zone!==state.zone) return false;
+    if(state.type && !d.type.startsWith(state.type)) return false;
+    if(state.cap && (d.cap===null || d.cap < Number(state.cap))) return false;
+    if(state.room && d.room !== "O") return false;
+    if(state.search){
+      const q = state.search.toLowerCase();
+      if(!(d.n.toLowerCase().includes(q) || d.type.toLowerCase().includes(q) || d.addr.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
+}
+
+function render(){
+  document.getElementById('totalCountStamp').textContent = DATA.length + '곳 수록';
+  buildSeoulMap();
+  buildZoneMap();
+  const list = filteredData();
+  document.getElementById('resultCount').textContent = list.length;
+  const grid = document.getElementById('cardGrid');
+  const empty = document.getElementById('emptyState');
+  grid.innerHTML = "";
+  if(list.length===0){
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    list.forEach(d=>{
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.onclick = () => openSheet(d);
+      card.innerHTML = `
+        <div class="c-region">${d.region}</div>
+        <div class="c-name">${d.n}</div>
+        <div class="c-type">${d.type}</div>
+        <div class="c-meta">
+          <span class="tag">${d.cap ? d.cap+'명' : '인원 문의'}</span>
+          <span class="tag">${d.price}</span>
+          <span class="tag ${d.room==='O'?'room-y':''}">룸 ${d.room==='O'?'있음':(d.room==='△'?'일부':'없음')}</span>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+}
+
+function openSheet(d){
+  const sheet = document.getElementById('sheet');
+  sheet.innerHTML = `
+    <button class="close-btn" onclick="closeSheet()">✕</button>
+    <div class="s-region">${d.region}</div>
+    <h2>${d.n}</h2>
+    <div class="s-type">${d.type}</div>
+    <div class="info-grid">
+      <div class="info-box"><div class="lbl">최대 인원</div><div class="val">${d.cap ? d.cap+'명' : '문의 필요'}</div></div>
+      <div class="info-box"><div class="lbl">1인당 가격</div><div class="val">${d.price}</div></div>
+      <div class="info-box"><div class="lbl">룸 보유</div><div class="val">${d.room==='O'?'있음':(d.room==='△'?'일부 가능':'없음')}</div></div>
+      <div class="info-box"><div class="lbl">예약 가능</div><div class="val">${d.reserve==='O'?'가능':'불가'}</div></div>
+    </div>
+    <div class="block"><div class="lbl">주소</div><div class="txt">${d.addr}</div></div>
+    <div class="block"><div class="lbl">예약 방법</div><div class="txt">${d.channel}</div></div>
+    <hr class="divider">
+    <div class="block"><div class="lbl">참고 사항</div><div class="txt">${d.note}</div></div>
+  `;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeSheet(){ document.getElementById('overlay').classList.remove('open'); }
+document.getElementById('overlay').addEventListener('click', e=>{
+  if(e.target.id==='overlay') closeSheet();
+});
+
+document.getElementById('searchInput').addEventListener('input', e=>{ state.search=e.target.value; render(); });
+document.getElementById('typeSelect').addEventListener('change', e=>{ state.type=e.target.value; render(); });
+document.getElementById('capSelect').addEventListener('change', e=>{ state.cap=e.target.value; render(); });
+document.getElementById('roomSelect').addEventListener('change', e=>{ state.room=e.target.value; render(); });
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  state = { zone:"", search:"", type:"", cap:"", room:"" };
+  document.getElementById('searchInput').value="";
+  document.getElementById('typeSelect').value="";
+  document.getElementById('capSelect').value="";
+  document.getElementById('roomSelect').value="";
+  render();
+});
+
+buildTypeOptions();
+render();
+</script>
+</body>
+</html>
