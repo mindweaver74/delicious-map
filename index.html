@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>맛있을 지도~~</title>
+<title>맛있을지도</title>
 <style>
   :root{
     --paper:#EDE2C9;
@@ -111,6 +111,16 @@
   }
   .zone-btn.active .zone-count{ background:var(--paper); color:var(--seal); }
 
+  .map-tabs{
+    display:flex; gap:6px; margin-bottom:8px;
+  }
+  .map-tab{
+    font-family:'궁서', Batang, serif; font-weight:700; font-size:13px;
+    border:1.4px solid var(--ink); background:var(--paper);
+    color:var(--ink); padding:6px 16px; border-radius:8px 8px 0 0;
+    cursor:pointer; border-bottom:none; opacity:0.55;
+  }
+  .map-tab.active{ opacity:1; background:var(--paper-2); }
   .seoul-map-wrap{
     background:var(--paper-2);
     border:1px solid var(--line);
@@ -123,12 +133,12 @@
   .zone-shape{
     fill:var(--paper);
     stroke:var(--ink);
-    stroke-width:1.4;
+    stroke-width:1.6;
     cursor:pointer;
     transition:fill .15s ease;
   }
   .zone-shape:hover{ fill:#fff8ea; }
-  .zone-shape.active{ fill:var(--seal); fill-opacity:0.18; stroke:var(--seal-dark); stroke-width:2; }
+  .zone-shape.active{ fill:var(--seal); fill-opacity:0.18; stroke:var(--seal-dark); stroke-width:2.2; }
   .zone-label{
     font-family:'궁서', Batang, serif; font-weight:700;
     fill:var(--ink); pointer-events:none; user-select:none;
@@ -143,6 +153,18 @@
   .river-path{ fill:none; stroke:#8FA9AE; stroke-width:9; opacity:0.55; stroke-linecap:round; }
   .river-path2{ fill:none; stroke:#fff; stroke-width:1; opacity:0.35; stroke-dasharray:2 5; }
   .map-caption{ text-align:center; font-size:11px; color:var(--ink-soft); padding:6px 4px 10px; }
+  .map-frame-outer{ fill:none; stroke:var(--ink); stroke-width:2; }
+  .map-frame-inner{ fill:none; stroke:var(--ink); stroke-width:0.8; opacity:0.6; }
+  .compass-label{
+    font-family:'궁서', Batang, serif; font-weight:700; font-size:12px;
+    fill:var(--ink); opacity:0.5; text-anchor:middle; dominant-baseline:central;
+  }
+  .mountain-glyph{ fill:none; stroke:var(--ink); stroke-width:1; opacity:0.16; stroke-linejoin:round; }
+  .map-seal{ fill:var(--seal); opacity:0.85; }
+  .map-seal-text{
+    font-family:'궁서', Batang, serif; font-weight:700; font-size:9px;
+    fill:var(--paper); text-anchor:middle; dominant-baseline:central;
+  }
 
   .filters{
     margin-top:14px;
@@ -288,8 +310,7 @@
 <div class="texture-line"></div>
 
 <header>
-  <!--div class="eyebrow">기업문화 CHANGER</div-->
-  <h1>맛있을 지도</h1>
+  <h1>맛있을지도</h1>
   <p>사람들이 다녀온 회식 맛집, 지역별로 모아봤습니다</p>
   <div class="stamp" id="totalCountStamp">수록 중</div>
 </header>
@@ -299,9 +320,13 @@
   <section class="map-section">
     <p class="section-title">지역으로 찾기</p>
     <p class="section-sub">지도에서 권역을 짚으면 그 지역 맛집만 모아보여드려요</p>
+    <div class="map-tabs">
+      <button class="map-tab active" id="tabSeoul">서울</button>
+      <button class="map-tab" id="tabRegion">지방</button>
+    </div>
     <div class="seoul-map-wrap">
-      <div id="seoulMap"></div>
-      <div class="map-caption">※ 실제 주소 좌표가 아닌, 권역별 대략적인 위치입니다</div>
+      <div id="mapCanvas"></div>
+      <div class="map-caption" id="mapCaption">※ 실제 주소 좌표가 아닌, 권역별 대략적인 위치입니다</div>
     </div>
     <div class="zone-map" id="zoneMap"></div>
 
@@ -446,10 +471,60 @@ const ZONE_META = {
   region:   {label:"지방", short:"지방"}
 };
 
-let state = { zone:"", search:"", type:"", cap:"", room:"" };
+let state = { zone:"", regionCity:"", mapTab:"seoul", search:"", type:"", cap:"", room:"" };
+
+// ---------- 고지도 장식 요소(테두리, 나침반, 산 그림, 인장) ----------
+function mapDecor(vx,vy,vw,vh, mountainSpots, sealPos, sealText){
+  const mountains = (mountainSpots||[]).map(m=>{
+    const s = m.s || 1;
+    const cx = m.x, cy = m.y;
+    return `<path class="mountain-glyph" d="M${cx-14*s},${cy+6*s} L${cx-7*s},${cy-9*s} L${cx},${cy+2*s} L${cx+7*s},${cy-11*s} L${cx+14*s},${cy+6*s}"></path>`;
+  }).join('');
+  const seal = sealPos ? `
+    <rect class="map-seal" x="${sealPos.x}" y="${sealPos.y}" width="16" height="16" rx="2" transform="rotate(-4 ${sealPos.x+8} ${sealPos.y+8})"></rect>
+    <text class="map-seal-text" x="${sealPos.x+8}" y="${sealPos.y+9}" transform="rotate(-4 ${sealPos.x+8} ${sealPos.y+8})">${sealText}</text>` : '';
+  return `
+    <defs>
+      <filter id="inkwash" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="4" result="noise"></feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.2"></feDisplacementMap>
+      </filter>
+    </defs>
+    <rect class="map-frame-outer" x="${vx+2}" y="${vy+2}" width="${vw-4}" height="${vh-4}" rx="4"></rect>
+    <rect class="map-frame-inner" x="${vx+7}" y="${vy+7}" width="${vw-14}" height="${vh-14}" rx="3"></rect>
+    <text class="compass-label" x="${vx+vw/2}" y="${vy+13}">北</text>
+    <text class="compass-label" x="${vx+vw/2}" y="${vy+vh-11}">南</text>
+    <text class="compass-label" x="${vx+vw-11}" y="${vy+vh/2}">東</text>
+    <text class="compass-label" x="${vx+11}" y="${vy+vh/2}">西</text>
+    ${mountains}
+    ${seal}
+  `;
+}
+
+function attachMapClickHandler(el){
+  el.querySelectorAll('[data-zone],[data-city]').forEach(node=>{ node.style.pointerEvents = 'none'; });
+  const svgRoot = el.querySelector('svg');
+  svgRoot.addEventListener('click', (e)=>{
+    const cityTarget = e.target.closest('[data-city]');
+    const zoneTarget = e.target.closest('[data-zone]');
+    if(cityTarget){
+      const c = cityTarget.getAttribute('data-city');
+      state.regionCity = (state.regionCity === c ? "" : c);
+      state.zone = "region";
+    } else if(zoneTarget){
+      const z = zoneTarget.getAttribute('data-zone');
+      state.zone = (state.zone === z ? "" : z);
+      state.regionCity = "";
+    } else {
+      return;
+    }
+    render();
+    document.getElementById('resultCount').scrollIntoView({behavior:'smooth', block:'center'});
+  });
+  el.querySelectorAll('.zone-shape, .zone-pin-hit').forEach(node=>{ node.style.pointerEvents = 'auto'; });
+}
 
 // 서울 권역을 대략적인 상대 위치로 배치한 손그림풍 지도 좌표
-// path는 각 권역을 뭉뚝한 땅덩어리 모양으로 표현하기 위한 좌표
 const SEOUL_SHAPES = {
   mapo:     { path:"M18,86 C10,70 30,55 55,52 C82,49 108,58 112,80 C116,102 98,118 70,120 C42,122 24,104 18,86 Z", pin:{x:60,y:86},  labelPos:{x:38,y:66} },
   downtown: { path:"M128,30 C122,14 150,4 182,6 C214,8 238,20 234,40 C230,60 198,68 168,64 C138,60 134,46 128,30 Z", pin:{x:180,y:36}, labelPos:{x:150,y:20} },
@@ -460,7 +535,7 @@ const SEOUL_SHAPES = {
 };
 
 function buildSeoulMap(){
-  const el = document.getElementById('seoulMap');
+  const el = document.getElementById('mapCanvas');
   const counts = {};
   DATA.forEach(d=>{ counts[d.zone] = (counts[d.zone]||0)+1; });
 
@@ -483,31 +558,92 @@ function buildSeoulMap(){
       </g>`;
   });
 
+  const decor = mapDecor(-18,-24,366,258,
+    [{x:32,y:186,s:1},{x:302,y:16,s:0.8},{x:255,y:200,s:0.8},{x:14,y:12,s:0.7},{x:326,y:150,s:0.7}],
+    {x:296,y:172}, "맛"
+  );
+
   el.innerHTML = `
-    <svg viewBox="0 0 330 210" xmlns="http://www.w3.org/2000/svg">
-      <path class="river-path" d="M0,108 C60,124 110,96 170,110 C230,124 280,100 330,112"></path>
-      <path class="river-path2" d="M0,108 C60,124 110,96 170,110 C230,124 280,100 330,112"></path>
-      ${shapesSvg}
+    <svg viewBox="-18 -24 366 258" xmlns="http://www.w3.org/2000/svg">
+      ${decor}
+      <g filter="url(#inkwash)">
+        <path class="river-path" d="M0,108 C60,124 110,96 170,110 C230,124 280,100 330,112"></path>
+        <path class="river-path2" d="M0,108 C60,124 110,96 170,110 C230,124 280,100 330,112"></path>
+        ${shapesSvg}
+      </g>
       ${labelsSvg}
       ${pinsSvg}
     </svg>
   `;
-  el.querySelectorAll('[data-zone]').forEach(node=>{
-    node.style.pointerEvents = 'none';
-  });
-  const svgRoot = el.querySelector('svg');
-  svgRoot.addEventListener('click', (e)=>{
-    const target = e.target.closest('[data-zone]');
-    if(!target) return;
-    const z = target.getAttribute('data-zone');
-    state.zone = (state.zone === z ? "" : z);
-    render();
-    document.getElementById('resultCount').scrollIntoView({behavior:'smooth', block:'center'});
-  });
-  el.querySelectorAll('.zone-shape, .zone-pin-hit').forEach(node=>{
-    node.style.pointerEvents = 'auto';
-  });
+  attachMapClickHandler(el);
 }
+
+// ---------- 지방(수도권 밖) 지도 ----------
+const REGION_CITY_POS = {
+  "부천": {x:50,y:82},
+  "안산": {x:64,y:100},
+  "천안": {x:90,y:150},
+  "김천": {x:160,y:210},
+  "대구": {x:185,y:245},
+  "부산": {x:195,y:275},
+  "제주도": {x:76,y:313}
+};
+const PENINSULA_PATH = "M108,8 C130,6 150,16 156,36 C165,54 180,64 182,84 C184,104 200,116 198,138 C196,160 210,172 206,196 C204,218 218,232 208,252 C200,268 210,282 194,292 C180,300 168,288 152,286 C136,284 128,296 112,290 C96,284 84,296 68,286 C52,276 44,282 36,266 C28,250 40,238 34,222 C28,206 38,192 34,176 C30,160 42,146 38,130 C34,114 46,100 44,84 C42,68 56,54 54,38 C52,22 66,10 88,8 C96,7 100,8 108,8 Z";
+const JEJU_PATH = "M65,314 C59,308 69,302 79,304 C89,306 93,314 87,320 C81,326 71,322 65,314 Z";
+
+function buildRegionMap(){
+  const el = document.getElementById('mapCanvas');
+  const counts = {};
+  DATA.filter(d=>d.zone==='region').forEach(d=>{ counts[d.region] = (counts[d.region]||0)+1; });
+
+  const peninsulaActive = state.zone==='region' && !state.regionCity;
+  let pinsSvg = "";
+  let labelsSvg = "";
+  Object.keys(REGION_CITY_POS).forEach(city=>{
+    const cnt = counts[city] || 0;
+    if(cnt===0) return;
+    const p = REGION_CITY_POS[city];
+    const isActive = state.regionCity === city;
+    const r = 10 + Math.min(cnt,20)*0.4;
+    labelsSvg += `<text class="zone-label" x="${p.x}" y="${p.y - r - 6}" font-size="10.5" text-anchor="middle">${city}</text>`;
+    pinsSvg += `
+      <g data-city="${city}" style="cursor:pointer;">
+        <circle class="zone-pin-dot${isActive?' active':''}" cx="${p.x}" cy="${p.y}" r="${r}"></circle>
+        <text class="zone-pin-count" x="${p.x}" y="${p.y+1}">${cnt}</text>
+        <circle class="zone-pin-hit" data-city="${city}" cx="${p.x}" cy="${p.y}" r="${r+8}"></circle>
+      </g>`;
+  });
+
+  const decor = mapDecor(-18,-22,296,364,
+    [{x:130,y:40,s:0.9},{x:150,y:110,s:0.8},{x:200,y:40,s:0.7},{x:230,y:330,s:0.7}],
+    {x:230,y:20}, "맛"
+  );
+
+  el.innerHTML = `
+    <svg viewBox="-18 -22 296 364" xmlns="http://www.w3.org/2000/svg">
+      ${decor}
+      <g filter="url(#inkwash)">
+        <path class="zone-shape${peninsulaActive?' active':''}" data-zone="region" d="${PENINSULA_PATH}"></path>
+        <path class="zone-shape${peninsulaActive?' active':''}" data-zone="region" d="${JEJU_PATH}"></path>
+      </g>
+      ${labelsSvg}
+      ${pinsSvg}
+    </svg>
+  `;
+  attachMapClickHandler(el);
+}
+
+function buildMap(){
+  document.getElementById('tabSeoul').classList.toggle('active', state.mapTab==='seoul');
+  document.getElementById('tabRegion').classList.toggle('active', state.mapTab==='region');
+  document.getElementById('mapCaption').textContent = state.mapTab==='seoul'
+    ? '※ 실제 주소 좌표가 아닌, 권역별 대략적인 위치입니다'
+    : '※ 실제 좌표가 아닌, 도시별 대략적인 위치입니다';
+  if(state.mapTab==='seoul') buildSeoulMap(); else buildRegionMap();
+}
+document.getElementById('tabSeoul').addEventListener('click', ()=>{ state.mapTab='seoul'; buildMap(); });
+document.getElementById('tabRegion').addEventListener('click', ()=>{ state.mapTab='region'; buildMap(); });
+
 
 function buildZoneMap(){
   const wrap = document.getElementById('zoneMap');
@@ -515,16 +651,20 @@ function buildZoneMap(){
   const allBtn = document.createElement('button');
   allBtn.className = 'zone-btn' + (state.zone===""?" active":"");
   allBtn.innerHTML = `전체 <span class="zone-count">${DATA.length}</span>`;
-  allBtn.onclick = () => { state.zone=""; render(); };
+  allBtn.onclick = () => { state.zone=""; state.regionCity=""; render(); };
   wrap.appendChild(allBtn);
 
   Object.keys(ZONE_META).forEach(z=>{
     const cnt = DATA.filter(d=>d.zone===z).length;
     if(cnt===0) return;
     const btn = document.createElement('button');
-    btn.className = 'zone-btn' + (state.zone===z?" active":"");
+    btn.className = 'zone-btn' + (state.zone===z && !state.regionCity ?" active":"");
     btn.innerHTML = `${ZONE_META[z].label} <span class="zone-count">${cnt}</span>`;
-    btn.onclick = () => { state.zone = (state.zone===z? "" : z); render(); };
+    btn.onclick = () => {
+      if(state.zone===z && !state.regionCity){ state.zone=""; } else { state.zone=z; }
+      state.regionCity="";
+      render();
+    };
     wrap.appendChild(btn);
   });
 }
@@ -546,6 +686,7 @@ function buildTypeOptions(){
 function filteredData(){
   return DATA.filter(d=>{
     if(state.zone && d.zone!==state.zone) return false;
+    if(state.regionCity && d.region!==state.regionCity) return false;
     if(state.type && !d.type.startsWith(state.type)) return false;
     if(state.cap && (d.cap===null || d.cap < Number(state.cap))) return false;
     if(state.room && d.room !== "O") return false;
@@ -559,7 +700,7 @@ function filteredData(){
 
 function render(){
   document.getElementById('totalCountStamp').textContent = DATA.length + '곳 수록';
-  buildSeoulMap();
+  buildMap();
   buildZoneMap();
   const list = filteredData();
   document.getElementById('resultCount').textContent = list.length;
@@ -619,7 +760,7 @@ document.getElementById('typeSelect').addEventListener('change', e=>{ state.type
 document.getElementById('capSelect').addEventListener('change', e=>{ state.cap=e.target.value; render(); });
 document.getElementById('roomSelect').addEventListener('change', e=>{ state.room=e.target.value; render(); });
 document.getElementById('resetBtn').addEventListener('click', ()=>{
-  state = { zone:"", search:"", type:"", cap:"", room:"" };
+  state = { zone:"", regionCity:"", mapTab:state.mapTab, search:"", type:"", cap:"", room:"" };
   document.getElementById('searchInput').value="";
   document.getElementById('typeSelect').value="";
   document.getElementById('capSelect').value="";
