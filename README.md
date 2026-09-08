@@ -2,7 +2,7 @@
 
 > 직장인들이 다녀온 회식 맛집을, 옛 지도(대동여지도) 감성으로 한눈에
 
-**▶ 바로 보기: https://mindweaver74.github.io/gaedong-map/**
+**▶ 바로 보기: https://mindweaver74.github.io/delicious-map/**
 
 <br>
 
